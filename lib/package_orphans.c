@@ -67,8 +67,8 @@ xbps_find_pkg_orphans(struct xbps_handle *xhp, xbps_array_t orphans_user _unused
 	xbps_object_t obj;
 	xbps_object_iterator_t iter;
 	const char *curpkgver, *deppkgver, *reqbydep;
-	bool automatic = false;
-	unsigned int i, cnt, reqbycnt;
+	bool orphan, automatic = false;
+	unsigned int i, reqbycnt;
 
 	if (xbps_pkgdb_init(xhp) != 0)
 		return NULL;
@@ -119,10 +119,8 @@ xbps_find_pkg_orphans(struct xbps_handle *xhp, xbps_array_t orphans_user _unused
 add_orphans:
 	for (i = 0; i < xbps_array_count(array); i++) {
 		pkgd = xbps_array_get(array, i);
-		xbps_dictionary_get_cstring_nocopy(pkgd, "pkgver", &curpkgver);
-		rdeps = xbps_pkgdb_get_pkg_fulldeptree(xhp, curpkgver);
+		rdeps = xbps_dictionary_get(pkgd, "run_depends");
 		for (unsigned int x = 0; x < xbps_array_count(rdeps); x++) {
-			cnt = 0;
 			xbps_array_get_cstring_nocopy(rdeps, x, &deppkgver);
 			if (xbps_find_pkg_in_array(array, deppkgver, NULL))
 				continue;
@@ -135,12 +133,16 @@ add_orphans:
 			if (reqby == NULL)
 				continue;
 			reqbycnt = xbps_array_count(reqby);
+			orphan = true;
 			for (unsigned int j = 0; j < reqbycnt; j++) {
 				xbps_array_get_cstring_nocopy(reqby, j, &reqbydep);
-				if (xbps_find_pkg_in_array(array, reqbydep, NULL))
-					cnt++;
+				if (!xbps_find_pkg_in_array(array, reqbydep, NULL))
+				{
+					orphan = false;
+					break;
+				}
 			}
-			if (cnt == reqbycnt)
+			if (orphan)
 				xbps_array_add(array, deppkgd);
 		}
 	}
